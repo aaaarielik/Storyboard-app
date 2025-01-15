@@ -2,5 +2,5 @@
 flask
 pymupdf
 pillow
-openai
 requests
+openai==0.27.8
