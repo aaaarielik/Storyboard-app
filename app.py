@@ -28,32 +28,47 @@ def divide_text_into_scenes(text):
 def generate_images_from_text(scenes):
     images = []
     for scene in scenes:
-        response = openai.Image.create(
-            prompt=scene,
-            n=1,
-            size="1024x1024"
-        )
-        image_url = response['data'][0]['url']
-        images.append(image_url)
+        try:
+            response = openai.Image.create(
+                prompt=scene,
+                n=1,
+                size="1024x1024"
+            )
+            image_url = response['data'][0]['url']
+            images.append(image_url)
+        except Exception as e:
+            print(f"Error generating image for scene '{scene}': {e}")
+            images.append(None)  # Append None for failed images
     return images
 
 # Function to create a storyboard PDF
 def create_storyboard_pdf(scenes, images, output_pdf_path):
     doc = fitz.open()
     for scene, image_url in zip(scenes, images):
-        response = requests.get(image_url)
-        img = BytesIO(response.content)
+        # Check if the image generation succeeded
+        if image_url is None:
+            continue
 
-        # Create a new page
-        page = doc.new_page(width=595, height=842)  # A4 size in points
+        try:
+            response = requests.get(image_url)
+            if response.status_code != 200:
+                print(f"Failed to fetch image from {image_url}")
+                continue
+            img = BytesIO(response.content)
 
-        # Add image to the page
-        img_rect = fitz.Rect(50, 50, 545, 545)  # Adjust image size/position as needed
-        pixmap = fitz.Pixmap(img)
-        page.insert_image(img_rect, pixmap=pixmap)
+            # Create a new page
+            page = doc.new_page(width=595, height=842)  # A4 size in points
 
-        # Add text to the page
-        page.insert_text((50, 600), scene, fontsize=12)
+            # Add image to the page
+            img_rect = fitz.Rect(50, 50, 545, 545)  # Adjust image size/position as needed
+            pixmap = fitz.Pixmap(img)
+            page.insert_image(img_rect, pixmap=pixmap)
+
+            # Add text to the page
+            page.insert_text((50, 600), scene, fontsize=12)
+
+        except Exception as e:
+            print(f"Error creating PDF page for scene '{scene}': {e}")
 
     doc.save(output_pdf_path)
     doc.close()
@@ -85,6 +100,9 @@ def create_storyboard():
 
     # Process the PDF
     text = extract_text_from_pdf(input_pdf_path)
+    if not text.strip():
+        return "The PDF does not contain any text."
+
     scenes = divide_text_into_scenes(text)
     images = generate_images_from_text(scenes)
 
