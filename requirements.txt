@@ -1,0 +1,6 @@
+
+flask
+pymupdf
+pillow
+openai
+requests
